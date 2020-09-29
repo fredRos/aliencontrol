@@ -7,9 +7,10 @@
   <license>MIT</license>
   <url type="website">https://github.com/acschaefer/aliencontrol</url>
   <author email="aschaef@cs.uni-freiburg.de">Alexander Schaefer</author>
-  
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>rospy</build_depend>
-  <build_export_depend>rospy</build_export_depend>
-  <exec_depend>rospy</exec_depend>
+
+  <export>
+      <build_type>ament_cmake</build_type>
+  </export>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
 </package>
