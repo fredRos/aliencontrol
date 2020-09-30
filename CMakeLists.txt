@@ -24,9 +24,8 @@ ament_export_dependencies()
 #############
 ## Install ##
 #############
-# All install targets should use catkin DESTINATION variables.
-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html.
 # TODO Is there an ament variable that stores the destination?
-install(PROGRAMS ${PROJECT_NAME} RENAME ${PROJECT_NAME}_exe DESTINATION ${CMAKE_BINARY_DIR})
+# install(PROGRAMS ${PROJECT_NAME} RENAME ${PROJECT_NAME}_exe DESTINATION share)
+install(PROGRAMS ${PROJECT_NAME} RENAME ${PROJECT_NAME}_exe DESTINATION lib/${PROJECT_NAME})
 
 ament_auto_package()

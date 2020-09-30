@@ -23,18 +23,21 @@ automatically kill the external application before shutting down.
 """
 
 # Import the required system libraries.
-import rospy
-import sys
 import argparse
 import os
+import rclpy
 import subprocess
 import signal
+import sys
 
 
 # Start the aliencontrol ROS node.
 if __name__ == '__main__':
     # Register the node with the roscore.
-    rospy.init_node('aliencontrol', anonymous=True)
+    rclpy.init(args=sys.argv)
+    # TODO why anonymous in rospy.init_node('aliencontrol', anonymous=True) ?
+    node = rclpy.create_node("aliencontrol")
+    context = rclpy.utilities.get_default_context()
 
     # Extract the command to execute from the input arguments. Accept both a ROS
     # private parameter (like in "rosrun aliencontrol aliencontrol _cmd:=top")
@@ -61,7 +64,8 @@ if __name__ == '__main__':
     # Start the external application as a process group. In this way, we make
     # sure to control not only the external process, but all of its
     # subprocesses.
-    rospy.loginfo('Executing command \"%s\" ...', cmd)
+    # rospy.loginfo('Executing command \"%s\" ...', cmd)
+    node.get_logger().info('Executing command \"%s\" ...', cmd)
     alien = subprocess.Popen(args=cmd, shell=True, preexec_fn=os.setsid)
 
     # Define the shutdown handler.
@@ -70,7 +74,8 @@ if __name__ == '__main__':
         
         Shuts down the external application using a sequence of signals. 
         """
-        rospy.loginfo('Shutting down aliencontrol ...')
+
+        node.get_logger().info('Shutting down aliencontrol ...')
 
         # Shut down the external application, if it is still running.
         try:
@@ -80,53 +85,57 @@ if __name__ == '__main__':
                 pgid = os.getpgid(alien.pid)
 
                 # Ask the process to gracefully shut down using SIGINT.
-                rospy.loginfo(
+                node.get_logger().info(
                     'Sending SIGINT to external process (PGID=%i, CMD=%s) ...',
                     pgid, cmd)
                 os.killpg(pgid, signal.SIGINT)
 
                 # Give the process some time to shut down.
-                wait_duration = rospy.Duration.from_sec(5.0)
-                rospy.loginfo(
-                    'Waiting for %i s until escalating to SIGTERM ...', 
+                wait_duration = rclpy.Duration(seconds=5)
+                node.get_logger().info(
+                    'Waiting for %i s until escalating to SIGTERM ...',
                     wait_duration.secs)
-                wait_time_end = rospy.Time.now() + wait_duration
-                rate = rospy.Rate(100)
-                while wait_time_end > rospy.Time.now():
+                wait_time_end = node.get_clock().now() + wait_duration
+                rate = rclpy.timer.Rate(100)
+                while wait_time_end > node.get_clock().now():
                     rate.sleep()
                     if alien.poll() != None:
-                        rospy.loginfo('External process is shut down.')
+                        node.get_logger().info('External process is shut down.')
                         return
 
                 # Ask the process to shut down using SIGTERM.
-                rospy.logwarn(
-                    'Sending SIGTERM to external process (PGID=%i, CMD=%s) ...', 
+                node.get_logger().warn(
+                    'Sending SIGTERM to external process (PGID=%i, CMD=%s) ...',
                     pgid, cmd)
                 os.killpg(pgid, signal.SIGTERM)
 
                 # Give the process some more time to shut down.
-                rospy.loginfo('Waiting for %i s until killing the process ...',
+                node.get_logger().info(
+                    'Waiting for %i s until killing the process ...',
                     wait_duration.secs)
-                wait_time_end = rospy.Time.now() + wait_duration
-                while wait_time_end > rospy.Time.now():
+                wait_time_end = node.get_clock().now() + wait_duration
+                while wait_time_end > node.get_clock().now():
                     rate.sleep()
                     if alien.poll() != None:
-                        rospy.loginfo('External process is shut down.')
+                        node.get_logger().info('External process is shut down.')
                         return
 
                 # If the process is still running, kill it.
-                rospy.logwarn(
+                node.get_logger().warn(
                     'Sending SIGKILL to external process (PGID=%i, CMD=%s) ...',
                     pgid, cmd)
                 os.killpg(pgid, signal.SIGKILL)
         except Exception as e:
-            rospy.logerr(e)
+            node.get_logger().error(e)
             raise
 
     # Register the shutdown handler.
-    rospy.on_shutdown(shutdown)
+    context.on_shutdown(shutdown)
 
     # Poll the external process to see if it is still active. If not, exit.
-    rate = rospy.Rate(10)
-    while (not rospy.is_shutdown()) and (alien.poll() == None):
+    rate = rclpy.timer.Rate(10)
+    while (context.ok() and (alien.poll() == None)):
         rate.sleep()
+
+    # TODO have to call rclpy.shutdown()?
+    rclpy.shutdown()
